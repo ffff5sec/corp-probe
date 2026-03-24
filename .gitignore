@@ -1,0 +1,44 @@
+# Binaries
+/corp-probe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output
+/bin/
+/dist/
+
+# Test binary
+*.test
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Config with secrets
+config.yaml
+config.yml
+!config.example.yaml
+
+# Cache database
+data/
+*.db
+
+# Output results
+results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vendor (if not committed)
+# vendor/
