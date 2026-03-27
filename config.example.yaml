@@ -1,22 +1,17 @@
 # corp-probe 配置文件
+# 至少配置一个数据源的认证信息才能使用
 # 认证优先级：CLI参数 > 环境变量 > 配置文件
 
-# 数据源认证
 sources:
+  # 亿企查（推荐）— 登录 www.yiqicha.com 后从浏览器 DevTools 获取
+  yiqicha:
+    token: ""   # JWT 令牌（从请求头 token 字段获取）
+    cid: ""     # 客户端标识（从请求头 cid 字段获取）
+
+  # 爱企查 — 登录 aiqicha.baidu.com 后从浏览器获取 Cookie
   aiqicha:
     cookie: ""
     # 或通过环境变量 CORP_PROBE_AIQICHA_COOKIE
-  qichacha:
-    cookie: ""
-    # 或通过环境变量 CORP_PROBE_QICHACHA_COOKIE
-  gsxt:
-    cookie: ""
-  miit:
-    proxy: ""
-  qimai:
-    api_key: ""
-  coolapk:
-    cookie: ""
 
 # 股权穿透默认参数
 equity:
