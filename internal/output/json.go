@@ -43,3 +43,90 @@ func WriteJSONFile(dir string, companyName string, results []model.QueryResult) 
 
 	return filePath, nil
 }
+
+// ────────────────────────────────────────
+// JSONL 输出（每行一条资产记录，供下游模块消费）
+// ────────────────────────────────────────
+
+// AssetLine JSONL 单行资产记录，用于模块间管道传递。
+type AssetLine struct {
+	Type    string `json:"type"`              // domain / app / wechat / miniprogram
+	Value   string `json:"value"`             // 资产值（域名/APP名等）
+	Company string `json:"company"`           // 所属企业
+	Source  string `json:"source,omitempty"`   // 数据来源
+	Extra   map[string]string `json:"extra,omitempty"` // 扩展字段
+}
+
+// WriteJSONL 将查询结果以 JSONL 格式输出，每行一条资产记录。
+func WriteJSONL(w io.Writer, results []model.QueryResult) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+
+	for _, r := range results {
+		company := r.Company.Name
+
+		// ICP 域名
+		if r.ICPRecords != nil {
+			for _, icp := range r.ICPRecords.Data {
+				_ = encoder.Encode(AssetLine{
+					Type:    "domain",
+					Value:   icp.Domain,
+					Company: icp.CompanyName,
+					Source:  "icp",
+					Extra: map[string]string{
+						"icp_number": icp.ICPNumber,
+						"site_name":  icp.SiteName,
+					},
+				})
+			}
+		}
+
+		// APP
+		if r.Apps != nil {
+			for _, app := range r.Apps.Data {
+				_ = encoder.Encode(AssetLine{
+					Type:    "app",
+					Value:   app.Name,
+					Company: company,
+					Source:  "app",
+					Extra: map[string]string{
+						"bundle_id": app.BundleID,
+						"platform":  app.Platform,
+					},
+				})
+			}
+		}
+
+		// 公众号
+		if r.OfficialAccounts != nil {
+			for _, acc := range r.OfficialAccounts.Data {
+				_ = encoder.Encode(AssetLine{
+					Type:    "wechat",
+					Value:   acc.Name,
+					Company: company,
+					Source:  "wechat",
+					Extra: map[string]string{
+						"wechat_id": acc.WechatID,
+					},
+				})
+			}
+		}
+
+		// 小程序
+		if r.MiniPrograms != nil {
+			for _, mp := range r.MiniPrograms.Data {
+				_ = encoder.Encode(AssetLine{
+					Type:    "miniprogram",
+					Value:   mp.Name,
+					Company: company,
+					Source:  mp.Platform,
+					Extra: map[string]string{
+						"app_id": mp.AppID,
+					},
+				})
+			}
+		}
+	}
+
+	return nil
+}

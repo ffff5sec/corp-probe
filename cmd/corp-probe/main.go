@@ -92,7 +92,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&flagName, "name", "n", "", "企业名称")
 	rootCmd.Flags().StringVarP(&flagFile, "file", "f", "", "批量查询文件（每行一个企业名称）")
 	rootCmd.Flags().StringSliceVarP(&flagModules, "module", "m", nil, "查询模块: icp, equity, app（默认全部）")
-	rootCmd.Flags().StringVarP(&flagOutput, "output", "o", "table", "输出格式: table, json")
+	rootCmd.Flags().StringVarP(&flagOutput, "output", "o", "table", "输出格式: table, json, jsonl")
 	rootCmd.Flags().StringSliceVar(&flagSource, "source", nil, "数据源: aiqicha, qichacha（默认全部已配置）")
 	rootCmd.Flags().StringVar(&flagICPSource, "icp-source", "all", "ICP 数据源: miit, aiqicha, qichacha, all")
 
@@ -305,12 +305,14 @@ func outputResults(cfg *config.Config, taskResults []engine.TaskResult) error {
 		} else {
 			return output.WriteJSON(os.Stdout, queryResults)
 		}
+	case "jsonl":
+		return output.WriteJSONL(os.Stdout, queryResults)
 	case "table":
 		for _, r := range queryResults {
 			output.WriteTable(os.Stdout, &r)
 		}
 	default:
-		return fmt.Errorf("不支持的输出格式: %s", flagOutput)
+		return fmt.Errorf("不支持的输出格式: %s（支持: table, json, jsonl）", flagOutput)
 	}
 
 	return nil
