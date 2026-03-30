@@ -21,6 +21,9 @@ type apiResponse struct {
 	Data    json.RawMessage `json:"data"`
 }
 
+// ErrQuotaExceeded 查询配额用尽。
+var ErrQuotaExceeded = fmt.Errorf("亿企查查询配额已用尽，请升级账户或稍后重试")
+
 // checkResponse 检查 API 响应状态。
 func checkResponse(body []byte) (*apiResponse, error) {
 	if len(body) == 0 {
@@ -29,6 +32,9 @@ func checkResponse(body []byte) (*apiResponse, error) {
 	var resp apiResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+	if resp.Code == "15000" {
+		return nil, ErrQuotaExceeded
 	}
 	if resp.Code != "0000" || !resp.Success {
 		return nil, fmt.Errorf("API 错误: %s (code: %s)", resp.Msg, resp.Code)
@@ -128,41 +134,47 @@ type icpItem struct {
 func parseInvestResponse(body []byte) ([]model.Investment, int, error) {
 	resp, err := checkResponse(body)
 	if err != nil {
-		return nil, 0, fmt.Errorf("投资查询: %w", err)
+		return nil, 0, fmt.Errorf("控股查询: %w", err)
 	}
 
 	var data struct {
-		List  []investItem `json:"list"`
-		Total int          `json:"total"`
+		List       []controlEpItem `json:"list"`
+		TotalCount int             `json:"totalCount"`
 	}
 	if err := json.Unmarshal(resp.Data, &data); err != nil {
-		return nil, 0, fmt.Errorf("解析投资数据失败: %w", err)
+		return nil, 0, fmt.Errorf("解析控股数据失败: %w", err)
 	}
 
 	var investments []model.Investment
 	for _, item := range data.List {
+		status := item.EntStatus
+		// 状态码转可读文本
+		switch status {
+		case "1":
+			status = "存续"
+		case "2":
+			status = "注销"
+		case "3":
+			status = "吊销"
+		}
+
 		investments = append(investments, model.Investment{
-			CompanyName: cleanHTML(item.EntName),
-			CreditCode:  item.CreditCode,
-			Ratio:       parsePercentage(item.InvestRate),
-			Amount:      item.InvestMoney,
-			LegalPerson: item.LegalPerson,
-			Status:      item.EntStatus,
-			CompanyID:   item.PID,
+			CompanyName: cleanHTML(item.ChildEntName),
+			Ratio:       item.BenefitShare,
+			Status:      status,
+			CompanyID:   item.ChildEntPid,
 		})
 	}
 
-	return investments, data.Total, nil
+	return investments, data.TotalCount, nil
 }
 
-type investItem struct {
-	PID         string `json:"pid"`
-	EntName     string `json:"entName"`
-	CreditCode  string `json:"creditCode"`
-	InvestRate  string `json:"investRate"`  // 投资比例
-	InvestMoney string `json:"investMoney"` // 投资金额
-	LegalPerson string `json:"legalPerson"`
-	EntStatus   string `json:"entStatus"`   // 经营状态
+type controlEpItem struct {
+	ChildEntPid       string  `json:"childEntPid"`       // 子公司 PID
+	ChildEntName      string  `json:"childEntName"`      // 子公司名称
+	BenefitShare      float64 `json:"benefitShare"`      // 持股比例（100.0 = 100%）
+	EntStatus         string  `json:"entStatus"`         // 经营状态码
+	IndustryFirstName string  `json:"industryFirstName"` // 行业分类
 }
 
 // ────────────────────────────────────────

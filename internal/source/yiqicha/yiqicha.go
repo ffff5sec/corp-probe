@@ -145,24 +145,33 @@ func (c *Client) QueryICP(ctx context.Context, companyName string) ([]model.ICPR
 	return records, nil
 }
 
-// QueryInvestments 查询企业对外投资。
+// QueryInvestments 查询企业控股企业（用于股权穿透）。
+// 使用 controlEpList 接口获取控股子公司及持股比例。
 func (c *Client) QueryInvestments(ctx context.Context, companyID string) ([]model.Investment, error) {
 	var allInvestments []model.Investment
 	page := 1
 
 	for {
 		body := map[string]interface{}{
-			"pid":         companyID,
-			"pageCurrent": page,
-			"pageSize":    20,
-			"entName":     "",
-			"sort":        "",
-			"sortField":   "",
+			"pid":                companyID,
+			"pageCurrent":        page,
+			"pageSize":           20,
+			"startRow":           (page - 1) * 20,
+			"entName":            "",
+			"entStatus":          "",
+			"sort":               "",
+			"sortField":          "",
+			"cityCode":           "",
+			"districtCode":       "",
+			"provinceCode":       "",
+			"industryFirstCode":  "",
+			"industrySecondCode": "",
+			"industryThirdCode":  "",
 		}
 
-		resp, err := c.postJSON(ctx, investAPI, body)
+		resp, err := c.postJSON(ctx, controlEpAPI, body)
 		if err != nil {
-			return nil, fmt.Errorf("查询对外投资失败 (第%d页): %w", page, err)
+			return nil, fmt.Errorf("查询控股企业失败 (第%d页): %w", page, err)
 		}
 
 		investments, total, err := parseInvestResponse(resp)

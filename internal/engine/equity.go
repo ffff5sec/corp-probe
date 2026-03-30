@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/ffff5sec/corp-probe/internal/cache"
 	"github.com/ffff5sec/corp-probe/internal/model"
@@ -97,8 +98,12 @@ func (e *EquityEngine) traverse(
 	}
 	visited[companyID] = true
 
-	// 查询对外投资
-	investments := e.queryInvestments(ctx, companyID)
+	// 查询控股企业
+	investments, err := e.queryInvestments(ctx, companyID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[equity] %s 查询控股企业失败: %v\n", companyName, err)
+		return nil
+	}
 
 	var nodes []model.EquityNode
 	for _, inv := range investments {
@@ -132,11 +137,11 @@ func (e *EquityEngine) traverse(
 	return nodes
 }
 
-// queryInvestments 从多个数据源查询对外投资，取第一个成功的结果。
-func (e *EquityEngine) queryInvestments(ctx context.Context, companyID string) []model.Investment {
+// queryInvestments 从多个数据源查询控股企业，取第一个成功的结果。
+func (e *EquityEngine) queryInvestments(ctx context.Context, companyID string) ([]model.Investment, error) {
 	for _, src := range e.sources {
 		key := cache.CacheKey{
-			CompanyName: companyID, // 用 companyID 作为缓存键
+			CompanyName: companyID,
 			QueryType:   cache.QueryTypeEquity,
 			Source:      src.Name(),
 		}
@@ -149,12 +154,13 @@ func (e *EquityEngine) queryInvestments(ctx context.Context, companyID string) [
 			if errors.Is(err, source.ErrNotSupported) {
 				continue
 			}
-			continue
+			// 配额耗尽等严重错误直接上报
+			return nil, err
 		}
 
 		if len(investments) > 0 {
-			return investments
+			return investments, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
